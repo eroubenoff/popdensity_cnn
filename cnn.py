@@ -8,11 +8,13 @@ Assumes all data are stored in 'data/data' and can be accessed using
 
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 # from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.applications import ResNet101, EfficientNetB7
+from tensorflow.data import Dataset
 from load_data import load_data
 # from sklearn.preprocessing import MinMaxScaler
 
@@ -89,35 +91,62 @@ def create_cnn(inputShape=(224, 224, 3), net="EfficientNet"):
 
 
 if __name__ == "__main__":
-    data, values = load_data(shape=(600, 600), cache=True,
-                             overwrite_cache=False)
-
-    # Shuffle the data and split into test/train. Need to do this to avoid
-    # reading into memeory
-    n = data.shape[0]
-    shuffled = np.random.shuffle(range(n - 1))
-    X_train = data[shuffled[(n // 3):, :, :, :]]
-    y_train = values[shuffled[(n // 3):]]
-    X_test = data[shuffled[:(n // 3), :, :, :]]
-    y_test = values[shuffled[:(n//3)]]
-
-    #  X_train, X_test, y_train, y_test = train_test_split(data, values,
-    #                                                      test_size=0.33,
-    #                                                      random_state=49)
+    # Data come in as mmapped arrays
+    X_train, y_train, X_test, y_test = load_data(shape=(600, 600), cache=True,
+                                                 overwrite_cache=False)
 
     # Rescale both test and train to the training set
     y_test = (y_test - np.min(y_train)) / (np.max(y_train) - np.min(y_train))
     y_train = (y_train - np.min(y_train)) / (np.max(y_train) - np.min(y_train))
 
+    """
+    # Create generator functions
+    def train_gen():
+        return zip(X_train, y_train)
+
+    def test_gen():
+        return zip(X_test, y_test)
+
+    train = Dataset.from_generator(train_gen,
+                                   output_types=(np.uint8, np.float32),
+                                   output_shapes=((None, 600, 600, 3), ())
+                                   )
+
+    test = Dataset.from_generator(test_gen,
+                                  output_types=(np.uint8, np.float32),
+                                  output_shapes=((None, 600, 600, 3), ())
+                                  )
+    """
+
+    X_train = Dataset.from_generator(
+        lambda: iter(X_train),
+        output_signature=tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8)
+    )
+    y_train = Dataset.from_generator(
+        lambda: iter(y_train),
+        output_signature=tf.TensorSpec(shape=(), dtype=tf.float32)
+    )
+    X_test = Dataset.from_generator(
+        lambda: iter(X_test),
+        output_signature=tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8)
+    )
+    y_test = Dataset.from_generator(
+        lambda: iter(y_test),
+        output_signature=tf.TensorSpec(shape=(), dtype=tf.float32)
+    )
+
+    train = Dataset.zip((X_train, y_train)).batch(30)
+    test = Dataset.zip((X_test, y_test)).batch(30)
+
     model = create_cnn(inputShape=(600, 600, 3))
     opt = Adam(lr=1e-6, decay=1e-3 / 200)
     model.compile(loss="mse", optimizer=opt)
 
-    history = model.fit(x=X_train,
-                        y=y_train,
-                        validation_data=(X_test, y_test),
-                        epochs=10,
-                        batch_size=1028)
+    history = model.fit(train,
+                        # validation_data=(X_test, y_test),
+                        epochs=10  # ,
+                        # batch_size=1028
+                        )
 
     model.save("efficientnet.h5")
 

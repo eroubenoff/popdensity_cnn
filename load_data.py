@@ -153,7 +153,7 @@ def process_data(datalist: list, valuelist: list, shape=(224, 224)):
 def load_data(dirname='data/data', shape=(224, 224),
               cache=True,
               overwrite_cache=False,
-              random_state = 49):
+              random_state=49):
     """ Wrapper around load_files and process_data. Takes in a directory
     and returns a tuple of training and test data and values.
 
@@ -177,6 +177,7 @@ def load_data(dirname='data/data', shape=(224, 224),
     tuple: data, values
     """
 
+    # If they exist, load or overwrite
     if cache and \
             "X_train.npy" in os.listdir("data") and \
             "X_test.npy" in os.listdir("data") and \
@@ -188,54 +189,47 @@ def load_data(dirname='data/data', shape=(224, 224),
             os.remove('data/y_train.npy')
             os.remove('data/y_test.npy')
         else:
-            X_train = np.load("data/X_train.npy", mmap_mode = "r")
-            X_test = np.load("data/X_test.npy", mmap_mode = "r")
-            y_train = np.load("data/y_train.npy", mmap_mode = "r")
-            y_test = np.load("data/y_test.npy", mmap_mode = "r")
+            X_train = np.load("data/X_train.npy", mmap_mode="r")
+            X_test = np.load("data/X_test.npy", mmap_mode="r")
+            y_train = np.load("data/y_train.npy", mmap_mode="r")
+            y_test = np.load("data/y_test.npy", mmap_mode="r")
 
-            if (datalist.shape[1] != shape[0]) or \
-                    (datalist.shape[2] != shape[1]):
+            if (X_train.shape[1] != shape[0]) or \
+                    (X_train.shape[2] != shape[1]):
                 raise ValueError("Cached data shape doesn't match requested \
                                  data shape")
-            return(datalist, valuelist)
+            return(X_train, y_train, X_test, y_test)
 
+    # Load and process all files
     datalist, valuelist = load_files(dirname)
-
-    """
-    if shape is None:
-        shapelist = [x.shape for x in datalist]
-        dim0 = [x[0] for x in shapelist]
-        dim1 = [x[1] for x in shapelist]
-        vals,counts = np.unique(array, return_counts=True)
-        index = np.argmax(counts)
-    """
     datalist, valuelist = process_data(datalist, valuelist, shape)
 
-
+    # Split into test-train
     datashape = datalist.shape
-    valueshape = valuelist.shape
     n = datashape[0]
     random.seed(random_state)
     shuffled = random.sample(range(n-1),  k=(n-1))
     train_idx = shuffled[(n//3):]
     test_idx = shuffled[:(n//3)]
 
+    # Save arrays to disk
+    np.save("data/X_train.npy", datalist[train_idx, :, :, :],
+            allow_pickle=False)
+    np.save("data/X_test.npy", datalist[test_idx, :, :, :,],
+            allow_pickle=False)
+    np.save("data/y_train.npy", valuelist[train_idx],
+            allow_pickle=False)
+    np.save("data/y_test.npy", valuelist[test_idx],
+            allow_pickle=False)
 
-    # Create mmap arrays
-    X_train = np.memmap("data/X_train", dtype="uint8", mode="w+",
-                       shape=(len(train_idx), shape[0], shape[1], 3))
-    X_test = np.memmap("data/X_test", dtype="uint8", mode="w+",
-                       shape=(len(test_idx), shape[0], shape[1], 3))
-    y_train = np.memmap("data/y_train", dtype="float", mode="w+",
-                        shape=(len(train_idx)))
-    y_test = np.memmap("data/y_test", dtype="float",  mode="w+",
-                       shape=(len(test_idx)))
+    del(datalist)
+    del(valuelist)
 
-    X_train = datalist[train_idx, :, :, :]
-    X_test = datalist[test_idx, :, :, :]
-    y_train = valuelist[train_idx]
-    y_test = valuelist[test_idx]
-
+    # Load mmapped arrays
+    X_train = np.load("data/X_train.npy", mmap_mode="r")
+    X_test = np.load("data/X_test.npy", mmap_mode="r")
+    y_train = np.load("data/y_train.npy", mmap_mode="r")
+    y_test = np.load("data/y_test.npy", mmap_mode="r")
 
     return(X_train, y_train, X_test, y_test)
 
