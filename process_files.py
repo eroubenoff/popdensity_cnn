@@ -86,9 +86,12 @@ def clip_raster(geo, rstr_df):
 
     rlist = []
 
+    if isinstance(geo, gpd.GeoDataFrame):
+        geo = geo.geometry
+
     for r in rstr_df.r:
         try:
-            rstr, _ = mask(r, geo.geometry, crop=True)
+            rstr, _ = mask(r, geo, crop=True)
             rstr = (rstr * 255).astype(np.uint8)
             rlist.append(rstr)
         except (ValueError, rio.errors.WindowError):

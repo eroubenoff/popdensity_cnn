@@ -10,18 +10,17 @@ August 2021
 import numpy as np
 import re
 import os
+import random
 # import tensorflow as tf
 
 
-def load_data(dirname="data/data", verbose=True):
+def load_files(dirname="data/data", verbose=True):
     """ Loads all files in `dirname` and returns them in numpy object
 
     Parameters
     ----------
     dirname : string
         - Location to look for images
-    size : 2 element list
-        - Size to reshape images
     Returns
     -------
     (np.ndarray, np.array)
@@ -38,8 +37,6 @@ def load_data(dirname="data/data", verbose=True):
         ----------
         fname: string
             - Object to be processed
-        size : 2-element list
-            - Size of resized image
         dirname : string
             - Location of object
         Returns
@@ -52,7 +49,7 @@ def load_data(dirname="data/data", verbose=True):
         f = np.load(os.path.join(dirname, fname))
 
         fname = re.split('_|\.', fname)
-        popdensity = int(fname[3])/int(fname[5])/(1e-6)
+        popdensity = float(fname[4] + "." + fname[5])
 
         return(f, popdensity)
 
@@ -80,7 +77,7 @@ def load_data(dirname="data/data", verbose=True):
 
 
 def process_data(datalist: list, valuelist: list, shape=(224, 224)):
-    """ Processes the output of load_data into the desired format
+    """ Processes the output of load_files into the desired format
 
     Instead of resampling, this will create tiles of the input
     shape as subsamples
@@ -149,6 +146,93 @@ def process_data(datalist: list, valuelist: list, shape=(224, 224)):
     # Repeat values however many times needed
     valuelist = np.repeat(valuelist, [x.shape[0] for x in datalist])
     datalist = np.concatenate(datalist)
+
+    return(datalist, valuelist)
+
+
+def load_data(dirname='data/data', shape=(224, 224),
+              cache=True,
+              overwrite_cache=False,
+              random_state = 49):
+    """ Wrapper around load_files and process_data. Takes in a directory
+    and returns a tuple of training and test data and values. A
+
+    Parameters
+    ---------
+    dirname : string
+        - Location of the split files
+    shape : tuple
+        - Dimensions of sub-images
+    cache : bool
+        - if True, save a version of the data in the 'data' folder
+    overwrite_cache : bool
+        - if True, delete cached versions
+    tt_split : bool
+        - store/retrieve the data pre-split into test + train
+
+    Returns
+    ------
+    tuple: data, values
+    """
+
+    if cache and \
+            "X_train.npy" in os.listdir("data") and \
+            "X_test.npy" in os.listdir("data") and \
+            "y_train.npy" in os.listdir("data") and \
+            "y_test.npy" in os.listdir("data"):
+        if overwrite_cache:
+            os.remove('data/X_train.npy')
+            os.remove('data/X_test.npy')
+            os.remove('data/y_train.npy')
+            os.remove('data/y_test.npy')
+        else:
+            X_train = np.load("data/X_train.npy", mmap_mode = "r")
+            X_test = np.load("data/X_test.npy", mmap_mode = "r")
+            y_train = np.load("data/y_train.npy", mmap_mode = "r")
+            y_test = np.load("data/y_test.npy", mmap_mode = "r")
+
+            if (datalist.shape[1] != shape[0]) or \
+                    (datalist.shape[2] != shape[1]):
+                raise ValueError("Cached data shape doesn't match requested \
+                                 data shape")
+            return(datalist, valuelist)
+
+    datalist, valuelist = load_files(dirname)
+
+    """
+    if shape is None:
+        shapelist = [x.shape for x in datalist]
+        dim0 = [x[0] for x in shapelist]
+        dim1 = [x[1] for x in shapelist]
+        vals,counts = np.unique(array, return_counts=True)
+        index = np.argmax(counts)
+    """
+    datalist, valuelist = process_data(datalist, valuelist, shape)
+
+    datashape = datalist.shape
+    valueshape = valuelist.shape
+    n = datashape[0]
+    shuffled = random.sample(range(n-1))
+
+    # Create mmap arraygs
+    X_train = np.memmap("data/X_train", dtype="uint8", mode="w")
+    X_test = np.memmap("data/X_test", dtype="uint8", mode="w")
+    y_train = np.memmap("data/y_train", dtype="float", mode="w")
+    y_test = np.memmap("data/y_test", dtype="float", mode="w")
+
+    X_train = data[shuffled[(n // 3):, :, :, :]]
+    X_test = data[shuffled[:(n // 3), :, :, :]]
+    y_train = values[shuffled[(n // 3):]]
+    y_test = values[shuffled[:(n//3)]]
+
+
+    # if cache:
+    #     np.save("data/datalist", datalist, allow_pickle=False)
+    #     np.save("data/valuelist", valuelist, allow_pickle=False)
+    #     datalist = np.load("data/datalist.npy", mmap_mode = 'r')
+    #     valuelist = np.load("data/valuelist.npy",
+    #                         mmap_mode = 'r').astype('float')
+    #     return(datalist, valuelist)
 
     return(datalist, valuelist)
 
