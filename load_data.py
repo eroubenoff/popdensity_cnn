@@ -155,7 +155,9 @@ def load_data(dirname='data/data', shape=(224, 224),
               overwrite_cache=False,
               random_state = 49):
     """ Wrapper around load_files and process_data. Takes in a directory
-    and returns a tuple of training and test data and values. A
+    and returns a tuple of training and test data and values.
+
+    Now works using mmaped arrays, so data are effectively always cached.
 
     Parameters
     ---------
@@ -209,34 +211,35 @@ def load_data(dirname='data/data', shape=(224, 224),
     """
     datalist, valuelist = process_data(datalist, valuelist, shape)
 
+
     datashape = datalist.shape
     valueshape = valuelist.shape
     n = datashape[0]
-    shuffled = random.sample(range(n-1))
-
-    # Create mmap arraygs
-    X_train = np.memmap("data/X_train", dtype="uint8", mode="w")
-    X_test = np.memmap("data/X_test", dtype="uint8", mode="w")
-    y_train = np.memmap("data/y_train", dtype="float", mode="w")
-    y_test = np.memmap("data/y_test", dtype="float", mode="w")
-
-    X_train = data[shuffled[(n // 3):, :, :, :]]
-    X_test = data[shuffled[:(n // 3), :, :, :]]
-    y_train = values[shuffled[(n // 3):]]
-    y_test = values[shuffled[:(n//3)]]
+    random.seed(random_state)
+    shuffled = random.sample(range(n-1),  k=(n-1))
+    train_idx = shuffled[(n//3):]
+    test_idx = shuffled[:(n//3)]
 
 
-    # if cache:
-    #     np.save("data/datalist", datalist, allow_pickle=False)
-    #     np.save("data/valuelist", valuelist, allow_pickle=False)
-    #     datalist = np.load("data/datalist.npy", mmap_mode = 'r')
-    #     valuelist = np.load("data/valuelist.npy",
-    #                         mmap_mode = 'r').astype('float')
-    #     return(datalist, valuelist)
+    # Create mmap arrays
+    X_train = np.memmap("data/X_train", dtype="uint8", mode="w+",
+                       shape=(len(train_idx), shape[0], shape[1], 3))
+    X_test = np.memmap("data/X_test", dtype="uint8", mode="w+",
+                       shape=(len(test_idx), shape[0], shape[1], 3))
+    y_train = np.memmap("data/y_train", dtype="float", mode="w+",
+                        shape=(len(train_idx)))
+    y_test = np.memmap("data/y_test", dtype="float",  mode="w+",
+                       shape=(len(test_idx)))
 
-    return(datalist, valuelist)
+    X_train = datalist[train_idx, :, :, :]
+    X_test = datalist[test_idx, :, :, :]
+    y_train = valuelist[train_idx]
+    y_test = valuelist[test_idx]
+
+
+    return(X_train, y_train, X_test, y_test)
 
 
 if __name__ == "__main__":
-    datalist, valuelist = load_data()
-    datalist, valuelist = process_data(datalist, valuelist)
+    X_train, y_train, X_test, y_test = load_data()
+    # datalist, valuelist = process_data(datalist, valuelist)
