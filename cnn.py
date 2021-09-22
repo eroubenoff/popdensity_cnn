@@ -99,52 +99,31 @@ if __name__ == "__main__":
     y_test = (y_test - np.min(y_train)) / (np.max(y_train) - np.min(y_train))
     y_train = (y_train - np.min(y_train)) / (np.max(y_train) - np.min(y_train))
 
-    """
-    # Create generator functions
-    def train_gen():
-        return zip(X_train, y_train)
+    train = Dataset.from_generator(
+        lambda: ((x, y) for x, y in zip(X_train, y_train)),
+        # lambda: zip(X_train, y_train),
+        output_signature=(
+            tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8),
+            tf.TensorSpec(shape=(), dtype=tf.float32)
+        )
+    ).batch(64, drop_remainder=True)  # This was the trick!
 
-    def test_gen():
-        return zip(X_test, y_test)
-
-    train = Dataset.from_generator(train_gen,
-                                   output_types=(np.uint8, np.float32),
-                                   output_shapes=((None, 600, 600, 3), ())
-                                   )
-
-    test = Dataset.from_generator(test_gen,
-                                  output_types=(np.uint8, np.float32),
-                                  output_shapes=((None, 600, 600, 3), ())
-                                  )
-    """
-
-    X_train = Dataset.from_generator(
-        lambda: iter(X_train),
-        output_signature=tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8)
-    )
-    y_train = Dataset.from_generator(
-        lambda: iter(y_train),
-        output_signature=tf.TensorSpec(shape=(), dtype=tf.float32)
-    )
-    X_test = Dataset.from_generator(
-        lambda: iter(X_test),
-        output_signature=tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8)
-    )
-    y_test = Dataset.from_generator(
-        lambda: iter(y_test),
-        output_signature=tf.TensorSpec(shape=(), dtype=tf.float32)
-    )
-
-    train = Dataset.zip((X_train, y_train)).batch(30)
-    test = Dataset.zip((X_test, y_test)).batch(30)
+    test = Dataset.from_generator(
+        lambda: ((x, y) for x, y in zip(X_test, y_test)),
+        # lambda: zip(X_train, y_train),
+        output_signature=(
+            tf.TensorSpec(shape=(600, 600, 3), dtype=tf.uint8),
+            tf.TensorSpec(shape=(), dtype=tf.float32)
+        )
+    ).batch(64, drop_remainder=True)  # This was the trick!
 
     model = create_cnn(inputShape=(600, 600, 3))
     opt = Adam(lr=1e-6, decay=1e-3 / 200)
     model.compile(loss="mse", optimizer=opt)
 
     history = model.fit(train,
-                        # validation_data=(X_test, y_test),
-                        epochs=10  # ,
+                        # validation_data=test,
+                        epochs=10
                         # batch_size=1028
                         )
 
@@ -162,4 +141,4 @@ if __name__ == "__main__":
 
     print(mean, std)
     plt.scatter(y_test, preds.flatten())
-    plt.savefig("models/efficientnet_preds.png")
+    plt.savefig("efficientnet_preds.png")
