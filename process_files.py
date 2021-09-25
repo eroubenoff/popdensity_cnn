@@ -100,6 +100,8 @@ def clip_raster(geo, rstr_df):
 
 
 if __name__ == "__main__":
+
+    raise Exception('This file is deprecated. Did you mean to run process_gpw.py?')
     # Load rasters
     ca_rasters = load_rasters()
 

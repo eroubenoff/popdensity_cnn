@@ -118,7 +118,8 @@ if __name__ == "__main__":
     ).batch(64, drop_remainder=True)  # This was the trick!
 
     model = create_cnn(inputShape=(600, 600, 3))
-    opt = Adam(lr=1e-6, decay=1e-3 / 200)
+    # opt = Adam(lr=1e-6, decay=1e-3 / 200)
+    opt = Adam(learning_rate=0.01)
     model.compile(loss="mse", optimizer=opt)
 
     history = model.fit(train,

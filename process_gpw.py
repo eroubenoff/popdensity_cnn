@@ -165,7 +165,7 @@ if __name__ == '__main__':
     ca_rasters = load_rasters()
 
     # Load population data and convert to geopandas
-    gpw = load_gpw(rescale_factor = 1/16)
+    gpw = load_gpw(rescale_factor = 1/4)
 
     for i in range(gpw.shape[0]):
         for j in range(gpw.shape[1]):
