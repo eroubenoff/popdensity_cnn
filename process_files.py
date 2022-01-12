@@ -92,7 +92,7 @@ def clip_raster(geo, rstr_df):
     for r in rstr_df.r:
         try:
             rstr, _ = mask(r, geo, crop=True)
-            rstr = (rstr * 255).astype(np.uint8)
+            # rstr = (rstr * 255).astype(np.uint8)
             rlist.append(rstr)
         except (ValueError, rio.errors.WindowError):
             continue
