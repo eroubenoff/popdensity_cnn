@@ -11,6 +11,7 @@ import numpy as np
 import re
 import os
 import random
+from skimage import exposure
 # import tensorflow as tf
 
 
@@ -146,6 +147,9 @@ def process_data(datalist: list, valuelist: list, shape=(224, 224)):
     # Repeat values however many times needed
     valuelist = np.repeat(valuelist, [x.shape[0] for x in datalist])
     datalist = np.concatenate(datalist)
+
+    # Fix the exposure of the dataset
+    datalist = exposure.rescale_intensity(datalist, in_range=(0, np.percentile(datalist, 98)))
 
     return(datalist, valuelist)
 

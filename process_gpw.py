@@ -17,8 +17,9 @@ from shapely.geometry import Polygon, box
 from process_files import load_rasters, clip_raster
 import numpy as np
 from rasterio.plot import reshape_as_image
-from joblib import Parallel, delayed
 from rasterio.enums import Resampling
+from skimage import exposure
+import time
 
 
 def load_gpw(gpw='data/gpw/gpw_v4_population_density_rev11_2020_30_sec.tif',
@@ -96,7 +97,7 @@ def load_gpw(gpw='data/gpw/gpw_v4_population_density_rev11_2020_30_sec.tif',
     return(rio.open(out))
 
 def extract_raster_cell(r, x, y):
-    """ Extracts the coordinates of a raster cell and returns as polygon
+    """ Extracts the coordinates of a (gpw) raster cell and returns as polygon
 
     Parameters
     ---------
@@ -124,7 +125,7 @@ def extract_raster_cell(r, x, y):
     )
 
 def run(i, j, gpw, ca_rasters):
-    """Procedure to run a single raster cell
+    """Procedure to run a single (gpw) raster cell
 
     Parameters
     ----------
@@ -138,9 +139,6 @@ def run(i, j, gpw, ca_rasters):
     None
 
     """
-    if (i*gpw.shape[0]  + j) % 1000 == 0:
-        print("On", i*gpw.shape[0] + j, "of", gpw.shape[0]*gpw.shape[1])
-
     cell = list(extract_raster_cell(gpw, i, j))
     cell[1] = clip_raster([cell[1]], ca_rasters)
 
@@ -153,10 +151,12 @@ def run(i, j, gpw, ca_rasters):
 
     # r is a tuple of (value, [list of ndarrays])
     for k, r in enumerate(cell[1]):
-        r = reshape_as_image(r)
+        r = np.asarray(reshape_as_image(r))
         fname = "data/data/gpw_{x}_{y}_dens_{d}_{k}".format(
             x = i, y = j, d = cell[0], k = k)
         np.save(fname, r, allow_pickle=False)
+        # with open(fname + ".pkl", 'wb') as f:
+        #     dill.dump(r, f)
 
     return
 
@@ -165,11 +165,18 @@ if __name__ == '__main__':
     ca_rasters = load_rasters()
 
     # Load population data and convert to geopandas
-    gpw = load_gpw(rescale_factor = 1) # 1/4
+    gpw = load_gpw(rescale_factor = 1/4) # 1/4
 
-    for i in range(10):#  range(gpw.shape[0]):
-        for j in range(10): # range(gpw.shape[1]):
+    t0 = time.time()
+
+    for i in range(gpw.shape[0]):
+        for j in range(gpw.shape[1]):
+            if (i*gpw.shape[0]  + j) % 1000 == 0:
+                print("On", i*gpw.shape[0] + j, "of", gpw.shape[0]*gpw.shape[1])
+                print("Seconds elapsed:", round(time.time() - t0, 2))
             run(i, j, gpw, ca_rasters)
+
+    # Parallel(n_jobs=1, prefer = 'processes')(delayed(run)(i, j, gpw, ca_rasters) for i in range(5) for j in range(1))
 
 
 
